@@ -1,28 +1,40 @@
-from fastapi import FastAPI, Request,status
+import os
+from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import cohere
-class chatRequest(BaseModel):
+
+class ChatRequest(BaseModel):
     prompt: str
-class chatResponse(BaseModel):
+
+class ChatResponse(BaseModel):
     response: str
 
-
 app = FastAPI()
-@app.get("/math")#this is an endpoint
+
+# Initialize Cohere client once
+co = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
+
+@app.get("/math")
 def health():
-    answer=1+1
-    return {"status": "Ok! This is working woohoo!", "answer": answer}
+    return {"status": "Ok! This is working woohoo!", "answer": 1 + 1}
 
-@app.post("/chat", response_model=chatResponse)
-def chat(request: chatRequest):
-     return chatResponse(response=f"I will get smarter later!")
+@app.post("/chat", response_model=ChatResponse)
+def chat(request: ChatRequest):
+    ai_response = co.chat(
+        model="command-a-03-2025",
+        messages=[{"role": "user", "content": request.prompt}],
+    )
 
-@app.post("/paid-chat", response_model=chatResponse)
-async def paid_chat(request: Request, body: chatRequest):
-    # Mock: check if header 'x-payment-ok' is set to 'true'
+    # Extract the text safely
+    reply_text = ai_response.message.content[0].text
+
+    return ChatResponse(response=reply_text)
+
+@app.post("/paid-chat", response_model=ChatResponse)
+async def paid_chat(request: Request, body: ChatRequest):
     payment_ok = request.headers.get("x-payment-ok") == "true"
-    
+
     if not payment_ok:
         return JSONResponse(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
@@ -35,12 +47,12 @@ async def paid_chat(request: Request, body: chatRequest):
                 }
             }
         )
-    
-    return chatResponse(response="Paid‑for answer!")
-co=cohere.ClientV2()
-response = co.chat(
-    model="command-a-03-2025",
-    messages=[{"role": "user", "content": "Tell me about LLMs"}],
-)
 
-print(response)
+    ai_response = co.chat(
+        model="command-a-03-2025",
+        messages=[{"role": "user", "content": body.prompt}],
+    )
+
+    reply_text = ai_response.message.content[0].text
+
+    return ChatResponse(response=reply_text)
