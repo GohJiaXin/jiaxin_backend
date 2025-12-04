@@ -1,58 +1,36 @@
+from fastapi import FastAPI
+from pydantic import BaseModel
+from dotenv import load_dotenv
 import os
 import cohere
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
 
+load_dotenv()
+
+# Request body schema
 class ChatRequest(BaseModel):
     prompt: str
 
+# Response body schema
 class ChatResponse(BaseModel):
     response: str
 
 app = FastAPI()
+co = cohere.ClientV2(api_key=os.getenv("COHERE_API_KEY"))
 
-# Initialize Cohere client once
-co = cohere.ClientV2(api_key=os.getenv("rfsM0XhnKGtolqxREqTYfcJ6FOGwBcWxlPpljPPR"))
-
-@app.get("/math")
+@app.get("/")
 def health():
-    return {"status": "Ok! This is working woohoo!", "answer": 1 + 1}
+    return {"status": "Ok! This is working woohoo!"}
 
 @app.post("/chat", response_model=ChatResponse)
 def chat(request: ChatRequest):
-    ai_response = co.chat(
+    
+    user_prompt = request.prompt
+    
+    response = co.chat(
         model="command-a-03-2025",
-        messages=[{"role": "user", "content": request.prompt}],
+        messages=[{"role": "user", "content": user_prompt}],
     )
 
-    # Extract the text safely
-    reply_text = ai_response.message.content[0].text
+    final_response = response.message.content[0].text
 
-    return ChatResponse(response=reply_text)
-
-@app.post("/paid-chat", response_model=ChatResponse)
-async def paid_chat(request: Request, body: ChatRequest):
-    payment_ok = request.headers.get("x-payment-ok") == "true"
-
-    if not payment_ok:
-        return JSONResponse(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            content={
-                "payment_instructions": {
-                    "amount": "0.01 USDC",
-                    "currency": "USDC",
-                    "chain": "Base",
-                    "payment_address": "0xABC..."
-                }
-            }
-        )
-
-    ai_response = co.chat(
-        model="command-a-03-2025",
-        messages=[{"role": "user", "content": body.prompt}],
-    )
-
-    reply_text = ai_response.message.content[0].text
-
-    return ChatResponse(response=reply_text)
+    return ChatResponse(response=f"Cohere said this: {final_response}")
