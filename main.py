@@ -13,7 +13,7 @@ class ChatResponse(BaseModel):
 app = FastAPI()
 
 # Initialize Cohere client once
-co = cohere.ClientV2(api_key=os.getenv("API_KEY"))
+co = cohere.ClientV2(api_key=os.getenv("rfsM0XhnKGtolqxREqTYfcJ6FOGwBcWxlPpljPPR"))
 
 @app.get("/math")
 def health():
